@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-check
+        name: make check
+        entry: make
+        language: system
+        pass_filenames: false
+        args: ["check"]

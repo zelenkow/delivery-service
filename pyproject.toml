@@ -1,0 +1,58 @@
+[project]
+name = "delivery-service"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "django==6.1.1",
+    "djangorestframework>=3.18.1",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "django-stubs>=6.1.1",
+    "djangorestframework-stubs>=3.18.1",
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.14.0",
+    "radon>=6.0.1",
+    "ruff>=0.16.9",
+]
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src"]
+extend-exclude = [".venv", "venv", "build", "dist", "__pycache__", "migrations"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.django-stubs]
+django_settings_module = "delivery.settings"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+ignore_missing_imports = true
+plugins = ["mypy_django_plugin.main"]
+
+
+[tool.bandit]
+exclude_dirs = [".venv", "tests", "migrations"]
+severity = "medium"
+confidence = "medium"
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "delivery.settings"
+testpaths = ["tests"]
