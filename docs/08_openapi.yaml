@@ -1,0 +1,430 @@
+openapi: 3.0.3
+info:
+  title: Delivery Service API
+  description: |
+    Микросервис службы международной доставки посылок.
+    Регистрация посылок, расчёт стоимости доставки, RAG-помощник поддержки.
+    Авторизация отсутствует — пользователи различаются по сессии (cookie).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Локальный запуск
+
+tags:
+  - name: parcels
+    description: Операции с посылками
+  - name: parcel-types
+    description: Справочник типов посылок
+  - name: support
+    description: RAG-помощник службы поддержки
+  - name: reports
+    description: Отчёты (доп. задание)
+
+paths:
+  /api/parcels/:
+    post:
+      tags: [parcels]
+      summary: Зарегистрировать посылку
+      description: |
+        Принимает данные посылки в JSON, валидирует их и создаёт запись,
+        привязанную к текущей сессии. Возвращает индивидуальный id посылки.
+      operationId: createParcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParcelCreateRequest'
+            examples:
+              clothes:
+                summary: Пример посылки с одеждой
+                value:
+                  name: "Куртка зимняя"
+                  weight: 2.5
+                  type: 1
+                  content_cost_usd: 120.00
+      responses:
+        '201':
+          description: Посылка успешно зарегистрирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParcelCreateResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [parcels]
+      summary: Получить список своих посылок
+      description: |
+        Возвращает постраничный список посылок текущей сессии.
+        Поддерживает фильтрацию по типу и наличию рассчитанной стоимости доставки.
+      operationId: listParcels
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: type
+          in: query
+          description: ID типа посылки для фильтрации
+          schema:
+            type: integer
+        - name: has_delivery_cost
+          in: query
+          description: Фильтр по наличию рассчитанной стоимости доставки
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Список посылок
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParcelListResponse'
+        '400':
+          description: Некорректные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/parcels/{id}/:
+    get:
+      tags: [parcels]
+      summary: Получить данные о посылке по id
+      description: Возвращает детальные данные посылки, принадлежащей текущей сессии.
+      operationId: getParcel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные посылки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParcelDetail'
+        '404':
+          description: Посылка не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/parcels/{id}/assign/:
+    post:
+      tags: [parcels]
+      summary: Привязать посылку к транспортной компании (доп. задание)
+      description: |
+        Атомарно закрепляет посылку за первой обратившейся компанией.
+        Повторная привязка возвращает 409 Conflict.
+      operationId: assignParcel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company_id]
+              properties:
+                company_id:
+                  type: integer
+                  minimum: 1
+                  example: 42
+      responses:
+        '200':
+          description: Посылка закреплена за компанией
+        '400':
+          description: Некорректный company_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Посылка не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Посылка уже привязана к другой компании
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/parcel-types/:
+    get:
+      tags: [parcel-types]
+      summary: Получить все типы посылок
+      description: Возвращает справочник типов посылок с их идентификаторами.
+      operationId: listParcelTypes
+      responses:
+        '200':
+          description: Список типов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ParcelType'
+
+  /api/support/ask/:
+    post:
+      tags: [support]
+      summary: Задать вопрос службе поддержки (RAG)
+      description: |
+        Принимает текстовый вопрос, векторизует его, выполняет поиск
+        в векторной БД и передаёт найденный контекст в LLM для генерации ответа.
+      operationId: askSupport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  minLength: 1
+                  example: "Можно ли отправить ноутбук?"
+      responses:
+        '200':
+          description: Ответ сгенерирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportAnswer'
+        '400':
+          description: Пустой вопрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: LLM недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Векторная БД недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Таймаут LLM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/reports/delivery-costs/:
+    get:
+      tags: [reports]
+      summary: Сумма стоимостей доставок по типам за день (доп. задание)
+      description: Агрегирует лог расчётов в MongoDB по типам за указанный день.
+      operationId: getDeliveryCostsReport
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-09-28"
+      responses:
+        '200':
+          description: Отчёт по типам
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  report:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type_id:
+                          type: integer
+                        type_name:
+                          type: string
+                        total:
+                          type: number
+                          format: decimal
+
+components:
+  schemas:
+    ParcelCreateRequest:
+      type: object
+      required: [name, weight, type, content_cost_usd]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: "Куртка зимняя"
+        weight:
+          type: number
+          format: decimal
+          exclusiveMinimum: 0
+          example: 2.5
+        type:
+          type: integer
+          description: ID типа посылки
+          example: 1
+        content_cost_usd:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 120.00
+
+    ParcelCreateResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+
+    ParcelType:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "одежда"
+        code:
+          type: string
+          example: "clothes"
+
+    ParcelListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Куртка зимняя"
+        weight:
+          type: number
+          format: decimal
+          example: 2.5
+        type:
+          type: string
+          example: "одежда"
+        content_cost_usd:
+          type: number
+          format: decimal
+          example: 120.00
+        delivery_cost:
+          oneOf:
+            - type: number
+              format: decimal
+            - type: string
+          example: "Не рассчитано"
+
+    ParcelListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParcelListItem'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            page_size:
+              type: integer
+              example: 20
+            total:
+              type: integer
+              example: 42
+
+    ParcelDetail:
+      type: object
+      properties:
+        name:
+          type: string
+        weight:
+          type: number
+          format: decimal
+        type:
+          type: string
+        content_cost_usd:
+          type: number
+          format: decimal
+        delivery_cost:
+          oneOf:
+            - type: number
+              format: decimal
+            - type: string
+          example: "Не рассчитано"
+
+    SupportAnswer:
+      type: object
+      properties:
+        answer:
+          type: string
+          example: "Ноутбук можно отправить, если его стоимость не превышает лимит..."
+        sources:
+          type: array
+          items:
+            type: string
+          example: ["customs_rules.txt#chunk_3"]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Некорректные данные"
+            details:
+              type: object
+              additionalProperties: true
+              example:
+                weight: ["Вес должен быть больше 0"]
