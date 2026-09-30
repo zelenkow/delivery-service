@@ -1,0 +1,79 @@
+from decimal import Decimal
+
+from rest_framework import serializers
+
+from parcels.models import Parcel, ParcelType
+from parcels.utils import format_delivery_cost
+
+
+class ParcelCreateSerializer(serializers.ModelSerializer[Parcel]):
+    """Сериализатор для создания посылки."""
+
+    # Принимаем только id типа, не вложенный объект
+    type = serializers.PrimaryKeyRelatedField(queryset=ParcelType.objects.all())
+
+    class Meta:
+        model = Parcel
+        fields = ["name", "weight", "type", "content_cost_usd"]
+
+    def validate_weight(self, value: Decimal) -> Decimal:
+        """Вес должен быть положительным."""
+
+        if value <= 0:
+            raise serializers.ValidationError("Вес должен быть больше 0")
+        return value
+
+    def validate_content_cost_usd(self, value: Decimal) -> Decimal:
+        """Стоимсоть не должна быть отрицательной"""
+        if value < 0:
+            raise serializers.ValidationError("Стоимость не может быть отрицательной")
+        return value
+
+
+class ParcelTypeSerializer(serializers.ModelSerializer[ParcelType]):
+    """Сериализатор типа посылки."""
+
+    class Meta:
+        model = ParcelType
+        fields = ["id", "name", "code"]
+
+
+class ParcelListSerializer(serializers.ModelSerializer[Parcel]):
+    """Сериализатор для списка посылок."""
+
+    # Отдаём имя типа вместо id — удобно для UI
+    type = serializers.CharField(source="type.name")
+
+    # Может быть None → «Не рассчитано»
+    delivery_cost = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Parcel
+        fields = ["id", "name", "weight", "type", "content_cost_usd", "delivery_cost"]
+
+    def get_delivery_cost(self, obj: Parcel) -> str | Decimal:
+        return format_delivery_cost(obj)
+
+
+class ParcelDetailSerializer(serializers.ModelSerializer[Parcel]):
+    """Сериализатор деталей посылки."""
+
+    type = serializers.CharField(source="type.name")
+    delivery_cost = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Parcel
+        fields = [
+            "id",
+            "name",
+            "weight",
+            "type",
+            "content_cost_usd",
+            "delivery_cost",
+            "delivery_cost_calculated_at",
+            "company_id",
+            "created_at",
+        ]
+
+    def get_delivery_cost(self, obj: Parcel) -> str | Decimal:
+        return format_delivery_cost(obj)
