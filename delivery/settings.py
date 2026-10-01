@@ -14,6 +14,7 @@ from pathlib import Path
 
 import django_stubs_ext
 import environ
+from celery.schedules import crontab
 
 django_stubs_ext.monkeypatch()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -151,6 +152,16 @@ CACHES = {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
     }
+}
+
+CELERY_BROKER_URL = f"redis://:{env('REDIS_PASSWORD')}@{env('REDIS_HOST')}:{env('REDIS_PORT')}/1"
+
+
+CELERY_BEAT_SCHEDULE = {
+    "calculate-delivery-costs-every-5-min": {
+        "task": "parcels.tasks.calculate_delivery_costs",
+        "schedule": crontab(minute="*/5"),
+    },
 }
 
 REST_FRAMEWORK = {
