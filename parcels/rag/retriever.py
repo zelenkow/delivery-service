@@ -1,8 +1,9 @@
 import logging
 
-from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore
+
+from parcels.rag.embeddings import FastEmbedWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ TOP_K = 5
 def get_vectorstore() -> QdrantVectorStore:
     """Возвращает подключение к коллекции Qdrant."""
 
-    embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings = FastEmbedWrapper(model_name="minishlab/potion-multilingual-128M")
     return QdrantVectorStore.from_existing_collection(
         embedding=embeddings,
         collection_name=COLLECTION_NAME,

@@ -1,10 +1,11 @@
 import logging
 from pathlib import Path
 
-from langchain_community.document_loaders import TextLoader
-from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+from parcels.rag.embeddings import FastEmbedWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,8 @@ QDRANT_URL = "http://localhost:6333"
 def build_knowledge_base(file_path: Path) -> int:
     """Строит базу знаний через LangChain + FastEmbed."""
 
-    loader = TextLoader(str(file_path), encoding="utf-8")
-    docs = loader.load()
+    text = file_path.read_text(encoding="utf-8")
+    docs = [Document(page_content=text, metadata={"source": str(file_path)})]
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
@@ -27,7 +28,7 @@ def build_knowledge_base(file_path: Path) -> int:
     )
     chunks = splitter.split_documents(docs)
 
-    embeddings = FastEmbedEmbeddings(model_name="minishlab/potion-multilingual-128M")
+    embeddings = FastEmbedWrapper(model_name="minishlab/potion-multilingual-128M")
 
     QdrantVectorStore.from_documents(
         chunks,
