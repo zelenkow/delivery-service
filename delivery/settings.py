@@ -24,7 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
-
+DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY")
+DEEPSEEK_API_URL = env("DEEPSEEK_API_URL")
+DEEPSEEK_MODEL = env("DEEPSEEK_MODEL")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
@@ -212,6 +214,11 @@ LOGGING = {
         "parcels": {
             "handlers": ["console"],
             "level": "DEBUG",
+            "propagate": False,
+        },
+        "httpx2": {
+            "handlers": ["console"],
+            "level": "WARNING",
             "propagate": False,
         },
     },

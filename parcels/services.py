@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-import httpx
+import httpx2
 from django.core.cache import cache
 
 from parcels.models import Parcel
@@ -17,7 +17,7 @@ def get_usd_rub_rate() -> Decimal:
     if cached:
         return Decimal(cached)
 
-    response = httpx.get(CBR_URL, timeout=10)
+    response = httpx2.get(CBR_URL, timeout=10)
     response.raise_for_status()
     data = response.json()
     rate = Decimal(str(data["Valute"]["USD"]["Value"]))

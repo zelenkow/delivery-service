@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 
 from rest_framework import serializers
 
@@ -77,3 +78,9 @@ class ParcelDetailSerializer(serializers.ModelSerializer[Parcel]):
 
     def get_delivery_cost(self, obj: Parcel) -> str | Decimal:
         return format_delivery_cost(obj)
+
+
+class SupportAskSerializer(serializers.Serializer[Any]):
+    """Сериализатор вопроса службе поддержки."""
+
+    question = serializers.CharField(max_length=1000, allow_blank=False)
