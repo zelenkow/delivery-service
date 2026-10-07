@@ -26,8 +26,13 @@ def get_usd_rub_rate() -> Decimal:
     return rate
 
 
-def calculate_delivery_cost(parcel: Parcel) -> Decimal:
-    """Считает стоимость доставки для посылки."""
+def compute_delivery_cost(parcel: Parcel, rate: Decimal) -> Decimal:
+    """Чистая формула: (weight * 0.5 + content_cost_usd * 0.01) * rate."""
 
-    rate = get_usd_rub_rate()
     return (parcel.weight * Decimal("0.5") + parcel.content_cost_usd * Decimal("0.01")) * rate
+
+
+def calculate_delivery_cost(parcel: Parcel) -> Decimal:
+    """Обёртка: сама достаёт курс. Для одиночных вызовов и тестов."""
+
+    return compute_delivery_cost(parcel, get_usd_rub_rate())

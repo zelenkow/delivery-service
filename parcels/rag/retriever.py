@@ -1,5 +1,7 @@
 import logging
+from functools import lru_cache
 
+from django.conf import settings
 from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore
 
@@ -8,19 +10,22 @@ from parcels.rag.embeddings import FastEmbedWrapper
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "knowledge"
-QDRANT_URL = "http://localhost:6333"
 EMBEDDING_MODEL = "minishlab/potion-multilingual-128M"
 TOP_K = 5
 
+# Singleton
+_embeddings = FastEmbedWrapper(model_name=EMBEDDING_MODEL)
 
+
+@lru_cache(maxsize=1)
 def get_vectorstore() -> QdrantVectorStore:
-    """Возвращает подключение к коллекции Qdrant."""
+    """Возвращает подключение к коллекции Qdrant (кэшируется)."""
 
-    embeddings = FastEmbedWrapper(model_name="minishlab/potion-multilingual-128M")
     return QdrantVectorStore.from_existing_collection(
-        embedding=embeddings,
+        embedding=_embeddings,
         collection_name=COLLECTION_NAME,
-        url=QDRANT_URL,
+        url=settings.QDRANT_URL,
+        api_key=settings.QDRANT_READ_ONLY_API_KEY,
     )
 
 

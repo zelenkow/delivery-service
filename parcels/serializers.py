@@ -83,4 +83,39 @@ class ParcelDetailSerializer(serializers.ModelSerializer[Parcel]):
 class SupportAskSerializer(serializers.Serializer[Any]):
     """Сериализатор вопроса службе поддержки."""
 
+    # Текст вопроса: не пустой, до 1000 символов
     question = serializers.CharField(max_length=1000, allow_blank=False)
+
+
+class ParcelAssignSerializer(serializers.Serializer[Any]):
+    """Сериализатор привязки посылки к компании."""
+
+    # ID компании: положительное целое
+    company_id = serializers.IntegerField(min_value=1)
+
+
+class DeliveryCostsReportQuerySerializer(serializers.Serializer[Any]):
+    """Query-параметры отчёта по стоимостям доставок."""
+
+    # Дата отчёта в формате YYYY-MM-DD
+    date = serializers.DateField()
+
+
+class DeliveryCostsReportItemSerializer(serializers.Serializer[Any]):
+    """Одна строка отчёта: тип + сумма."""
+
+    # ID типа посылки
+    type_id = serializers.IntegerField()
+    # Название типа (одежда/электроника/разное)
+    type_name = serializers.CharField()
+    # Сумма delivery_cost за день по типу
+    total = serializers.DecimalField(max_digits=14, decimal_places=2)
+
+
+class DeliveryCostsReportSerializer(serializers.Serializer[Any]):
+    """Ответ отчёта: дата + список строк."""
+
+    # Дата отчёта
+    date = serializers.DateField()
+    # Строки отчёта: по одной на каждый тип
+    report = DeliveryCostsReportItemSerializer(many=True)

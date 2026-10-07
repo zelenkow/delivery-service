@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from django.conf import settings
 from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -12,7 +13,6 @@ logger = logging.getLogger(__name__)
 COLLECTION_NAME = "knowledge"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
-QDRANT_URL = "http://localhost:6333"
 
 
 def build_knowledge_base(file_path: Path) -> int:
@@ -33,7 +33,8 @@ def build_knowledge_base(file_path: Path) -> int:
     QdrantVectorStore.from_documents(
         chunks,
         embeddings,
-        url=QDRANT_URL,
+        url=settings.QDRANT_URL,
+        api_key=settings.QDRANT_API_KEY,
         collection_name=COLLECTION_NAME,
         force_recreate=True,
     )

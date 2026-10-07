@@ -1,4 +1,16 @@
 services:
+
+  migrate:
+    build: .
+    command: python manage.py migrate
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
@@ -11,16 +23,22 @@ services:
     environment:
       DB_HOST: postgres
       REDIS_HOST: redis
+      MONGO_HOST: mongo
+      QDRANT_URL: http://qdrant:6333
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
 
   postgres:
     image: postgres:18-alpine
-    env_file:
-      - .env
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -56,11 +74,19 @@ services:
     environment:
       DB_HOST: postgres
       REDIS_HOST: redis
+      MONGO_HOST: mongo
+      QDRANT_URL: http://qdrant:6333
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
 
   beat:
     build: .
@@ -72,7 +98,11 @@ services:
     environment:
       DB_HOST: postgres
       REDIS_HOST: redis
+      MONGO_HOST: mongo
+      QDRANT_URL: http://qdrant:6333
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -80,12 +110,34 @@ services:
 
   qdrant:
     image: qdrant/qdrant:v1.19.1
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+      QDRANT__SERVICE__READ_ONLY_API_KEY: ${QDRANT_READ_ONLY_API_KEY}
     ports:
       - "127.0.0.1:6333:6333"
       - "127.0.0.1:6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage      
 
+  mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "-u", "${MONGO_USER}", "-p", 
+        "${MONGO_PASSWORD}", "--authenticationDatabase", 
+        "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s  
+
 volumes:
   postgres_data:
   qdrant_data:
+  mongo_data:

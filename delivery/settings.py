@@ -17,25 +17,15 @@ import environ
 from celery.schedules import crontab
 
 django_stubs_ext.monkeypatch()
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
-DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY")
-DEEPSEEK_API_URL = env("DEEPSEEK_API_URL")
-DEEPSEEK_MODEL = env("DEEPSEEK_MODEL")
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
+# Core
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env("DJANGO_DEBUG")
-
+DEBUG = env.bool("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 
 
@@ -86,7 +76,6 @@ WSGI_APPLICATION = "delivery.wsgi.application"
 
 
 # Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 DATABASES = {
     "default": {
@@ -101,7 +90,6 @@ DATABASES = {
 
 
 # Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -120,31 +108,28 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-# https://docs.djangoproject.com/en/6.1/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.1/howto/static-files/
+# Static files
 
 STATIC_URL = "static/"
 
 
 # Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
 MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
 }
+
+
+# Cache
 
 CACHES = {
     "default": {
@@ -156,8 +141,10 @@ CACHES = {
     }
 }
 
-CELERY_BROKER_URL = f"redis://:{env('REDIS_PASSWORD')}@{env('REDIS_HOST')}:{env('REDIS_PORT')}/1"
 
+# Celery
+
+CELERY_BROKER_URL = f"redis://:{env('REDIS_PASSWORD')}@{env('REDIS_HOST')}:{env('REDIS_PORT')}/1"
 
 CELERY_BEAT_SCHEDULE = {
     "calculate-delivery-costs-every-5-min": {
@@ -165,6 +152,9 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute="*/5"),
     },
 }
+
+
+# DRF
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -175,6 +165,26 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
 }
+
+
+# External services
+
+DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY")
+DEEPSEEK_API_URL = env("DEEPSEEK_API_URL")
+DEEPSEEK_MODEL = env("DEEPSEEK_MODEL")
+
+QDRANT_URL = env("QDRANT_URL")
+QDRANT_API_KEY = env("QDRANT_API_KEY")
+QDRANT_READ_ONLY_API_KEY = env("QDRANT_READ_ONLY_API_KEY")
+
+MONGO_HOST = env("MONGO_HOST")
+MONGO_PORT = env.int("MONGO_PORT")
+MONGO_USER = env("MONGO_USER")
+MONGO_PASSWORD = env("MONGO_PASSWORD")
+MONGO_DB = env("MONGO_DB")
+
+
+# Logging
 
 LOGGING = {
     "version": 1,
