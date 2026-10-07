@@ -2,22 +2,92 @@ services:
 
   migrate:
     build: .
-    command: python manage.py migrate
+    command: sh -c "python manage.py migrate && python manage.py init_mongo"
     env_file:
       - .env
     environment:
       DB_HOST: postgres
+      MONGO_HOST: mongo
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_healthy   
+
+  models:
+    build: .
+    command: python -c "from parcels.rag.retriever import _embeddings"
+    environment:
+      FASTEMBED_CACHE_PATH: /root/.cache/fastembed
+    volumes:
+      - hf_cache:/root/.cache/fastembed
+    env_file:
+      - .env
 
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
     volumes:
       - .:/app
+      - hf_cache:/root/.cache/fastembed
     ports:
       - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      MONGO_HOST: mongo
+      QDRANT_URL: http://qdrant:6333
+      FASTEMBED_CACHE_PATH: /root/.cache/fastembed
+    depends_on:
+      models:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  worker:
+    build: .
+    command: celery -A delivery worker -l info
+    restart: unless-stopped
+    volumes:
+      - .:/app
+      - hf_cache:/root/.cache/fastembed
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      MONGO_HOST: mongo
+      QDRANT_URL: http://qdrant:6333
+      FASTEMBED_CACHE_PATH: /root/.cache/fastembed
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  beat:
+    build: .
+    command: celery -A delivery beat -l info
+    restart: unless-stopped
+    volumes:
+      - .:/app
     env_file:
       - .env
     environment:
@@ -32,13 +102,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mongo:
-        condition: service_healthy
-      qdrant:
-        condition: service_started
 
   postgres:
     image: postgres:18-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -56,6 +123,7 @@ services:
   redis:
     image: redis:8-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
+    restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
@@ -64,52 +132,9 @@ services:
       timeout: 5s
       retries: 5
 
-  worker:
-    build: .
-    command: celery -A delivery worker -l info
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      MONGO_HOST: mongo
-      QDRANT_URL: http://qdrant:6333
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      qdrant:
-        condition: service_started
-
-  beat:
-    build: .
-    command: celery -A delivery beat -l info
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      MONGO_HOST: mongo
-      QDRANT_URL: http://qdrant:6333
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   qdrant:
     image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
       QDRANT__SERVICE__READ_ONLY_API_KEY: ${QDRANT_READ_ONLY_API_KEY}
@@ -121,6 +146,7 @@ services:
 
   mongo:
     image: mongo:7
+    restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -141,3 +167,4 @@ volumes:
   postgres_data:
   qdrant_data:
   mongo_data:
+  hf_cache:

@@ -15,6 +15,7 @@ from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedR
 from rest_framework import serializers, status, viewsets
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from parcels.filters import ParcelFilter
@@ -35,6 +36,12 @@ from parcels.serializers import (
 from parcels.utils import get_session_key, get_user_parcels
 
 logger = logging.getLogger(__name__)
+
+
+class SupportAskThrottle(AnonRateThrottle):
+    """Более жёсткий лимит для RAG — защита бюджета LLM."""
+
+    scope = "support"
 
 
 class ParcelViewSet(viewsets.ModelViewSet[Parcel]):
@@ -97,6 +104,7 @@ class SupportAskView(APIView):
     """RAG-эндпоинт: вопрос → ответ."""
 
     serializer_class = SupportAskSerializer
+    throttle_classes = [SupportAskThrottle]
 
     def post(self, request: Request) -> Response:
         """Принимает вопрос, ищет контекст в векторной БД, генерирует ответ через LLM."""

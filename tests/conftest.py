@@ -2,9 +2,18 @@ from typing import Any
 
 import pytest
 from django.test import Client
+from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
+from rest_framework.throttling import AnonRateThrottle
 
 from parcels.models import ParcelType
+
+
+@pytest.fixture(autouse=True)
+def disable_throttling(mocker: MockerFixture) -> None:
+    """Отключает throttling во всех тестах — не нужен Redis."""
+
+    mocker.patch.object(AnonRateThrottle, "allow_request", return_value=True)
 
 
 @pytest.fixture

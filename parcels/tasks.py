@@ -3,6 +3,7 @@ from datetime import UTC
 from typing import Any
 
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 
 from parcels.models import Parcel
@@ -10,8 +11,6 @@ from parcels.mongo import log_delivery_costs_bulk, to_decimal128
 from parcels.services import compute_delivery_cost, get_usd_rub_rate
 
 logger = logging.getLogger(__name__)
-
-BATCH_SIZE = 500
 
 
 @shared_task
@@ -30,7 +29,7 @@ def calculate_delivery_costs() -> int:
     parcels = (
         Parcel.objects.filter(delivery_cost__isnull=True)
         .select_related("type")
-        .iterator(chunk_size=BATCH_SIZE)
+        .iterator(chunk_size=settings.DELIVERY_COST_BATCH_SIZE)
     )
 
     batch: list[Parcel] = []
@@ -57,7 +56,7 @@ def calculate_delivery_costs() -> int:
         )
 
         # Раз в BATCH_SIZE — bulk_update + insert_many
-        if len(batch) >= BATCH_SIZE:
+        if len(batch) >= settings.DELIVERY_COST_BATCH_SIZE:
             Parcel.objects.bulk_update(
                 batch,
                 ["delivery_cost", "delivery_cost_calculated_at"],
